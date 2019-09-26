@@ -5,3 +5,11 @@ description: Create a Kubernetes cluster on DigitalOcean's infrastructure
 runs:
   using: docker
   image: Dockerfile
+
+outputs:
+  CLUSTER_NAME:
+    description: name of the created cluster
+  CLUSTER_ID:
+    description: id of the created cluster
+  KUBECONFIG:
+    description: base64-encoded kubeconfig for the cluster
