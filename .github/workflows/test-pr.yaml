@@ -1,0 +1,51 @@
+name: Integration Test Pull Request
+on: pull_request
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: build binary
+      run: |-
+        VERSION="$(cat VERSION)-dev"
+        LDFLAGS="-X github.com/digitalocean/csi-digitalocean/driver.version=${VERSION} -X github.com/digitalocean/csi-digitalocean/driver.commit=${GITHUB_SHA} -X github.com/digitalocean/csi-digitalocean/driver.gitTreeState=clean"
+        go build -o cmd/do-csi-plugin/do-csi-plugin -ldflags "$LDFLAGS" ./cmd/do-csi-plugin
+    - name: build and publish test docker image
+      uses: adamwg/gpr-docker-publish@master
+      id: docker
+      with:
+        USERNAME: adamwg
+        PASSWORD: ${{ secrets.GH_PACKAGES_TOKEN }}
+        IMAGE_NAME: do-csi-plugin
+        BUILD_CONTEXT: cmd/do-csi-plugin
+        DOCKERFILE_PATH: cmd/do-csi-plugin/Dockerfile
+    - name: create DOKS cluster for testing
+      uses: ./.github/actions/create-cluster-action
+      id: cluster
+      env:
+        DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DigitalOceanToken }}
+    - name: deploy test version to DOKS
+      run: |-
+        echo "${KUBECONFIG}" | base64 -d > ${HOME}/kubeconfig
+        cd test/kubernetes/deploy
+        curl -Lo ./kustomize "https://github.com/kubernetes-sigs/kustomize/releases/download/v3.2.0/kustomize_3.2.0_linux_amd64"
+        chmod 755 kustomize
+        ./kustomize edit set image digitalocean/do-csi-plugin:dev="${IMAGE_NAME}"
+        ./kustomize build . --load_restrictor none | kubectl --kubeconfig=${HOME}/kubeconfig apply -f -
+        kubectl --kubeconfig=${HOME}/kubeconfig -n kube-system get all
+        kubectl --kubeconfig=${HOME}/kubeconfig -n kube-system wait --for=condition=Ready pod -l csi-do-controller-dev
+        kubectl --kubeconfig=${HOME}/kubeconfig -n kube-system wait --for=condition=Ready pod -l csi-do-node-dev
+      env:
+        IMAGE_NAME: ${{ steps.docker.outputs.IMAGE_SHA_NAME }}
+        KUBECONFIG: ${{ steps.cluster.outputs.KUBECONFIG }}
+    - name: run integration tests
+      run: |-
+        go test -v -tags integration ./test/kubernetes
+      env:
+        TEST_STORAGE_CLASS: do-block-storage-dev
+    - name: delete cluster
+      uses: ./.github/actions/delete-cluster-action
+      env:
+        DIGITALOCEAN_ACCESS_TOKEN: ${{ secrets.DigitalOceanToken }}
+      with:
+        CLUSTER_ID: ${{ steps.cluster.outputs.CLUSTER_ID }}
