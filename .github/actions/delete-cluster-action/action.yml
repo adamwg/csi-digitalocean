@@ -1,0 +1,12 @@
+---
+name: Delete k8s cluster
+description: Delete a Kubernetes cluster on DigitalOcean's infrastructure
+
+runs:
+  using: docker
+  image: Dockerfile
+
+inputs:
+  cluster_id:
+    description: UUID of cluster to delete
+    required: true
