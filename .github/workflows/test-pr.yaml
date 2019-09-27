@@ -31,6 +31,8 @@ jobs:
         curl -Lo ./kustomize "https://github.com/kubernetes-sigs/kustomize/releases/download/v3.2.0/kustomize_3.2.0_linux_amd64"
         chmod 755 kustomize
         ./kustomize edit set image digitalocean/do-csi-plugin:dev="${IMAGE_NAME}"
+        ls -al /github/home/.kube
+        ls -al ${HOME}/.kube
         ./kustomize build . --load_restrictor none | kubectl --kubeconfig=${HOME}/kubeconfig apply -f -
         kubectl --kubeconfig=${HOME}/kubeconfig -n kube-system get all
         kubectl --kubeconfig=${HOME}/kubeconfig -n kube-system wait --for=condition=Ready pod -l csi-do-controller-dev
