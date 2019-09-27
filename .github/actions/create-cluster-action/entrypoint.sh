@@ -15,3 +15,5 @@ KUBECONFIG=$(/app/doctl kubernetes cluster kubeconfig show ${NAME} | base64)
 echo "::set-output name=CLUSTER_NAME::${NAME}"
 echo "::set-output name=CLUSTER_ID::${CLUSTER_ID}"
 echo "::set-output name=KUBECONFIG::${KUBECONFIG}"
+
+cp /github/home/.kube/config ${HOME}/kconfig
